@@ -134,20 +134,30 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
     const destinationWallet = result === 'fail'
       ? commitment.penalty_wallet
       : commitment.reward_wallet;
-    const amount            = result === 'fail'
+    const amount = result === 'fail'
       ? commitment.penalty_amount_usdc
-      : null; // reward amount TBD (Stage 2)
+      : commitment.reward_amount_usdc;
+
+    // For reward actions, compute the unix timestamp after which the lock expires
+    let metadata = null;
+    if (actionType === 'reward' && amount != null) {
+      const lockDays = commitment.reward_lock_days || 30;
+      const unlockDate = new Date(periodEnd);
+      unlockDate.setUTCDate(unlockDate.getUTCDate() + lockDays);
+      metadata = { unlock_timestamp: Math.floor(unlockDate.getTime() / 1000) };
+    }
 
     if (destinationWallet && amount != null) {
       const status = isDryRun ? 'dry_run_logged' : 'pending';
       await client.query(
         `INSERT INTO wallet_actions
            (id, commitment_id, evaluation_id, action_type, amount_usdc,
-            destination_wallet, status, dry_run, created_at)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NOW())`,
-        [actionId, commitment.id, evalId, actionType, amount, destinationWallet, status, isDryRun]
+            destination_wallet, status, dry_run, metadata, created_at)
+         VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NOW())`,
+        [actionId, commitment.id, evalId, actionType, amount, destinationWallet, status, isDryRun,
+         metadata ? JSON.stringify(metadata) : null]
       );
-      walletAction = { id: actionId, action_type: actionType, amount_usdc: amount, destination_wallet: destinationWallet, status };
+      walletAction = { id: actionId, action_type: actionType, amount_usdc: amount, destination_wallet: destinationWallet, status, metadata };
     }
 
     await client.query('COMMIT');

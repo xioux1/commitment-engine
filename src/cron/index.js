@@ -17,9 +17,20 @@ function start() {
     console.log('[cron] evaluation run started', new Date().toISOString());
     try {
       const results = await runAllActiveCommitments();
-      const passed  = results.filter(r => r.ok).length;
-      const failed  = results.filter(r => !r.ok).length;
-      console.log(`[cron] done — ${passed} ok, ${failed} errors`);
+      const evalOk  = results.filter(r => r.ok).length;
+      const evalErr = results.filter(r => !r.ok).length;
+      console.log(`[cron] evaluations done — ${evalOk} ok, ${evalErr} errors`);
+
+      // Stage 2: execute pending wallet_actions generated above.
+      // Skipped entirely in DRY_RUN mode — those actions are logged as
+      // 'dry_run_logged' and never reach 'pending'.
+      if (!DRY_RUN) {
+        const { processPending } = require('../executor/walletExecutor');
+        const execResults = await processPending();
+        const execOk  = execResults.filter(r => r.ok).length;
+        const execErr = execResults.filter(r => !r.ok).length;
+        console.log(`[cron] executor done — ${execOk} confirmed, ${execErr} failed`);
+      }
     } catch (err) {
       console.error('[cron] unhandled error:', err.message);
     }
