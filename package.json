@@ -8,7 +8,7 @@
     "dev": "nodemon src/server.js",
     "migrate": "node src/db/migrate.js",
     "test": "jest --runInBand --forceExit",
-    "build": "cd dashboard && npm install && npm run build"
+    "build": "cd dashboard && npm install --include=dev && npm run build"
   },
   "dependencies": {
     "axios": "^1.6.0",
