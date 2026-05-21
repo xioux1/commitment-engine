@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, Fragment } from 'react';
 import { useFetch }       from '../hooks/useFetch';
 import { StatusBadge }    from '../components/StatusBadge';
 import { SectionHeader }  from '../components/SectionHeader';
@@ -7,7 +7,7 @@ import { Spinner, InlineError } from '../components/Spinner';
 const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const fmtTs   = (d) => new Date(d).toLocaleString();
 
-function RulesTarget(rules) {
+function studyMinutesTarget(rules) {
   if (!Array.isArray(rules)) return null;
   const r = rules.find(r => r.metric === 'study_minutes');
   return r ? r.threshold : null;
@@ -20,6 +20,7 @@ export function Evaluations() {
 
   const commitmentsData = useFetch('/commitments?limit=100');
   const commitmentList  = commitmentsData.data?.data || [];
+  const commitmentMap   = Object.fromEntries(commitmentList.map(c => [c.id, c.title]));
 
   const params = new URLSearchParams({ limit: 100 });
   if (commitmentFilter) params.set('commitment_id', commitmentFilter);
@@ -27,13 +28,17 @@ export function Evaluations() {
   const evalsData = useFetch(`/evaluations?${params}`);
   const rows      = evalsData.data?.data || [];
 
+  const passN    = rows.filter(e => e.result === 'pass').length;
+  const failN    = rows.filter(e => e.result === 'fail').length;
+  const totalN   = passN + failN;
+  const passRate = totalN > 0 ? Math.round((passN / totalN) * 100) : null;
+
   return (
     <div className="space-y-6">
       <div>
         <SectionHeader>Evaluations history</SectionHeader>
 
-        {/* Filters */}
-        <div className="flex gap-3 mb-4">
+        <div className="flex flex-wrap items-center gap-3 mb-4">
           <select
             value={commitmentFilter}
             onChange={e => setCommitmentFilter(e.target.value)}
@@ -53,6 +58,14 @@ export function Evaluations() {
             <option value="pass">Pass</option>
             <option value="fail">Fail</option>
           </select>
+
+          {totalN > 0 && (
+            <div className="ml-auto flex items-center gap-4 font-mono text-xs">
+              <span className="text-[#a3e635]">{passN} PASS</span>
+              <span className="text-[#f87171]">{failN} FAIL</span>
+              <span className="text-gray-500">{passRate}% rate</span>
+            </div>
+          )}
         </div>
 
         <div className="bg-[#111] border border-[#222] overflow-x-auto">
@@ -67,6 +80,7 @@ export function Evaluations() {
               <thead>
                 <tr className="border-b border-[#222] text-[10px] text-gray-600 uppercase tracking-widest">
                   <th className="text-left px-4 py-2">Period</th>
+                  <th className="text-left px-4 py-2 hidden md:table-cell">Commitment</th>
                   <th className="text-left px-4 py-2">Result</th>
                   <th className="text-left px-4 py-2 hidden md:table-cell">Study min</th>
                   <th className="text-left px-4 py-2 hidden md:table-cell">Target</th>
@@ -75,24 +89,25 @@ export function Evaluations() {
               </thead>
               <tbody>
                 {rows.map(e => {
-                  const isOpen    = expanded === e.id;
-                  const metrics   = e.metrics_data?.metrics || {};
-                  const target    = RulesTarget(e.rules_snapshot);
-
+                  const isOpen  = expanded === e.id;
+                  const metrics = e.metrics_data?.metrics || {};
+                  const target  = studyMinutesTarget(e.rules_snapshot);
                   return (
-                    <>
+                    <Fragment key={e.id}>
                       <tr
-                        key={e.id}
                         className="border-b border-[#1a1a1a] cursor-pointer hover:bg-[#151515] transition-colors"
                         onClick={() => setExpanded(isOpen ? null : e.id)}
                       >
                         <td className="px-4 py-2.5 text-gray-300">
                           {fmtDate(e.period_start)} – {fmtDate(e.period_end)}
                         </td>
+                        <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell max-w-[160px] truncate">
+                          {commitmentMap[e.commitment_id] || '—'}
+                        </td>
                         <td className="px-4 py-2.5">
                           <StatusBadge status={e.result} />
                         </td>
-                        <td className="px-4 py-2.5 text-gray-300 hidden md:table-cell">
+                        <td className={`px-4 py-2.5 hidden md:table-cell ${metrics.study_minutes != null && target != null ? (metrics.study_minutes >= target ? 'text-[#a3e635]' : 'text-[#f87171]') : 'text-gray-300'}`}>
                           {metrics.study_minutes ?? '—'}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell">
@@ -104,8 +119,8 @@ export function Evaluations() {
                       </tr>
 
                       {isOpen && (
-                        <tr key={`${e.id}-exp`} className="bg-[#0d0d0d] border-b border-[#1a1a1a]">
-                          <td colSpan={5} className="px-4 py-3">
+                        <tr className="bg-[#0d0d0d] border-b border-[#1a1a1a]">
+                          <td colSpan={6} className="px-4 py-3">
                             <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-2">
                               Raw metrics snapshot
                             </div>
@@ -123,7 +138,8 @@ export function Evaluations() {
                                       <StatusBadge status={r.passed ? 'pass' : 'fail'} />
                                       <span className="text-gray-400">
                                         {r.rule?.metric} {r.rule?.operator} {r.rule?.threshold}
-                                        {' → '}actual: <span className={r.passed ? 'text-[#a3e635]' : 'text-[#f87171]'}>
+                                        {' → '}actual:{' '}
+                                        <span className={r.passed ? 'text-[#a3e635]' : 'text-[#f87171]'}>
                                           {r.actual_value}
                                         </span>
                                       </span>
@@ -135,7 +151,7 @@ export function Evaluations() {
                           </td>
                         </tr>
                       )}
-                    </>
+                    </Fragment>
                   );
                 })}
               </tbody>

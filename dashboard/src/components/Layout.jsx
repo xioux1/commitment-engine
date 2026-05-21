@@ -18,19 +18,22 @@ export function Layout({ children }) {
             CommitmentVault
           </span>
           <nav className="flex gap-6">
-            {NAV.map(({ to, label }) => (
-              <Link
-                key={to}
-                to={to}
-                className={`font-mono text-xs tracking-wide transition-colors ${
-                  pathname === to || (to !== '/' && pathname.startsWith(to))
-                    ? 'text-[#a3e635]'
-                    : 'text-gray-500 hover:text-gray-200'
-                }`}
-              >
-                {label}
-              </Link>
-            ))}
+            {NAV.map(({ to, label }) => {
+              const active = pathname === to || (to !== '/' && pathname.startsWith(to));
+              return (
+                <Link
+                  key={to}
+                  to={to}
+                  className={`font-mono text-xs tracking-wide transition-colors pb-0.5 border-b ${
+                    active
+                      ? 'text-[#a3e635] border-[#a3e635]'
+                      : 'text-gray-500 border-transparent hover:text-gray-200'
+                  }`}
+                >
+                  {label}
+                </Link>
+              );
+            })}
           </nav>
         </div>
       </header>

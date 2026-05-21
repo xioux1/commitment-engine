@@ -10,6 +10,15 @@ import { Spinner, InlineError } from '../components/Spinner';
 const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const fmtTs   = (d) => new Date(d).toLocaleString();
 
+function computeStreak(rows) {
+  let n = 0;
+  for (const e of rows) {
+    if (e.result === 'pass') n++;
+    else break;
+  }
+  return n;
+}
+
 export function CommitmentDetail() {
   const { id } = useParams();
 
@@ -19,13 +28,23 @@ export function CommitmentDetail() {
   const c    = commitment.data?.data;
   const rows = evals.data?.data || [];
 
-  // Chart data: one bar per evaluation (oldest first)
+  const passN        = rows.filter(e => e.result === 'pass').length;
+  const failN        = rows.filter(e => e.result === 'fail').length;
+  const totalN       = passN + failN;
+  const passRate     = totalN > 0 ? Math.round((passN / totalN) * 100) : null;
+  const streak       = computeStreak(rows);
+  const totalMinutes = rows.reduce((sum, e) => sum + (e.metrics_data?.metrics?.study_minutes ?? 0), 0);
+
   const chartData = [...rows].reverse().map(e => ({
-    label: fmtDate(e.period_start),
-    pass:  e.result === 'pass' ? 1 : 0,
-    fail:  e.result === 'fail' ? 1 : 0,
+    label:  fmtDate(e.period_start),
+    pass:   e.result === 'pass' ? 1 : 0,
+    fail:   e.result === 'fail' ? 1 : 0,
     result: e.result,
   }));
+
+  const studyTarget = Array.isArray(c?.rules)
+    ? c.rules.find(r => r.metric === 'study_minutes')?.threshold
+    : null;
 
   return (
     <div className="space-y-8">
@@ -66,6 +85,7 @@ export function CommitmentDetail() {
               <div className="text-gray-300">{c.end_date ? new Date(c.end_date).toLocaleDateString() : '—'}</div>
             </div>
           </div>
+
           {Array.isArray(c.rules) && (
             <div className="mt-4">
               <div className="text-[10px] font-mono text-gray-600 uppercase tracking-widest mb-2">Rules</div>
@@ -79,10 +99,38 @@ export function CommitmentDetail() {
               </div>
             </div>
           )}
+
+          {totalN > 0 && (
+            <div className="mt-5 pt-4 border-t border-[#1a1a1a] grid grid-cols-2 md:grid-cols-4 gap-3 text-xs font-mono">
+              <div>
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">Pass rate</div>
+                <div className={
+                  passRate >= 80 ? 'text-[#a3e635]'
+                  : passRate >= 50 ? 'text-[#fbbf24]'
+                  : 'text-[#f87171]'
+                }>
+                  {passRate}%
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">Streak</div>
+                <div className={streak >= 4 ? 'text-[#a3e635]' : streak > 0 ? 'text-gray-200' : 'text-gray-600'}>
+                  {streak > 0 ? `${streak}w` : '—'}
+                </div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">Evaluations</div>
+                <div className="text-gray-300">{passN}↑ {failN}↓</div>
+              </div>
+              <div>
+                <div className="text-[10px] text-gray-600 uppercase tracking-widest mb-1">Total study</div>
+                <div className="text-gray-300">{totalMinutes.toLocaleString()} min</div>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
-      {/* Pass/Fail bar chart */}
       {chartData.length > 0 && (
         <section>
           <SectionHeader>Evaluation history — pass / fail by period</SectionHeader>
@@ -118,7 +166,6 @@ export function CommitmentDetail() {
         </section>
       )}
 
-      {/* Full evaluation table */}
       <section>
         <SectionHeader>All evaluations</SectionHeader>
         <div className="bg-[#111] border border-[#222]">
@@ -141,14 +188,19 @@ export function CommitmentDetail() {
               <tbody>
                 {rows.map(e => {
                   const metrics = e.metrics_data?.metrics || {};
+                  const min     = metrics.study_minutes;
                   return (
                     <tr key={e.id} className="border-b border-[#1a1a1a] last:border-0">
                       <td className="px-4 py-2.5 text-gray-300">
                         {fmtDate(e.period_start)} – {fmtDate(e.period_end)}
                       </td>
                       <td className="px-4 py-2.5"><StatusBadge status={e.result} /></td>
-                      <td className="px-4 py-2.5 text-gray-300 hidden md:table-cell">
-                        {metrics.study_minutes ?? '—'}
+                      <td className={`px-4 py-2.5 hidden md:table-cell ${
+                        min != null && studyTarget != null
+                          ? min >= studyTarget ? 'text-[#a3e635]' : 'text-[#f87171]'
+                          : 'text-gray-300'
+                      }`}>
+                        {min ?? '—'}
                       </td>
                       <td className="px-4 py-2.5 text-gray-500 hidden lg:table-cell">
                         {fmtTs(e.evaluated_at)}
@@ -157,6 +209,17 @@ export function CommitmentDetail() {
                   );
                 })}
               </tbody>
+              {totalN > 1 && (
+                <tfoot>
+                  <tr className="border-t border-[#222] text-[10px] text-gray-600">
+                    <td className="px-4 py-2" colSpan={2}>Total ({totalN} evals)</td>
+                    <td className="px-4 py-2 hidden md:table-cell text-gray-400">
+                      {totalMinutes.toLocaleString()} min
+                    </td>
+                    <td className="hidden lg:table-cell" />
+                  </tr>
+                </tfoot>
+              )}
             </table>
           )}
         </div>
