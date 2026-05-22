@@ -135,11 +135,27 @@ router.patch('/:id', async (req, res, next) => {
 
 // ── DELETE /commitments/:id ───────────────────────────────────────────────────
 router.delete('/:id', async (req, res, next) => {
+  const client = await pool.connect();
   try {
-    const { rows } = await pool.query('DELETE FROM commitments WHERE id = $1 RETURNING id', [req.params.id]);
-    if (!rows.length) return res.status(404).json({ error: 'Commitment not found' });
-    res.json({ data: { id: rows[0].id, deleted: true } });
-  } catch (err) { next(err); }
+    await client.query('BEGIN');
+    const { rows: existing } = await client.query('SELECT id FROM commitments WHERE id = $1', [req.params.id]);
+    if (!existing.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Commitment not found' });
+    }
+    // Delete in FK dependency order
+    await client.query('DELETE FROM wallet_actions   WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM evaluations      WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM metric_snapshots WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM commitments      WHERE id = $1',            [req.params.id]);
+    await client.query('COMMIT');
+    res.json({ data: { id: req.params.id, deleted: true } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
 });
 
 // ── POST /commitments/:id/evaluate  (manual trigger for testing) ──────────────
