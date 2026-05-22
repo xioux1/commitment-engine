@@ -202,15 +202,32 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
  * @param {Date} [referenceDate]
  * @returns {Promise<Array>}
  */
+/**
+ * Returns true if a commitment with the given period should be evaluated
+ * on referenceDate based on its schedule.
+ *   daily   → every day
+ *   weekly  → on evaluation_day_of_week (default 1 = Monday)
+ *   monthly → on the 1st of the month
+ */
+function shouldEvaluateToday(commitment, referenceDate) {
+  const day = referenceDate.getUTCDay(); // 0=Sun … 6=Sat
+  const date = referenceDate.getUTCDate();
+  if (commitment.period === 'daily')   return true;
+  if (commitment.period === 'weekly')  return day === (commitment.evaluation_day_of_week ?? 1);
+  if (commitment.period === 'monthly') return date === 1;
+  return false;
+}
+
 async function runAllActiveCommitments(referenceDate = new Date()) {
-  const { rows: commitments } = await pool.query(
+  const { rows: all } = await pool.query(
     `SELECT * FROM commitments
      WHERE status = 'active'
        AND start_date <= CURRENT_DATE
        AND (end_date IS NULL OR end_date >= CURRENT_DATE)`
   );
 
-  console.log(`[cron] found ${commitments.length} active commitment(s)`);
+  const commitments = all.filter(c => shouldEvaluateToday(c, referenceDate));
+  console.log(`[cron] ${all.length} active, ${commitments.length} due for evaluation today`);
 
   const results = [];
   for (const commitment of commitments) {
