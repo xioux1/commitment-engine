@@ -130,13 +130,27 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
     const isDryRun = DRY_RUN || commitment.dry_run;
     let walletAction = null;
 
-    const actionType        = result === 'fail' ? 'penalty' : 'reward';
-    const destinationWallet = result === 'fail'
-      ? commitment.penalty_wallet
-      : commitment.reward_wallet;
-    const amount = result === 'fail'
-      ? commitment.penalty_amount_usdc
-      : commitment.reward_amount_usdc;
+    // Determine which wallet_action to create (if any).
+    // - fail + penalty_enabled → penalty action
+    // - fail + !penalty_enabled → no action (commitment has no penalty configured)
+    // - pass → reward action (if reward wallet/amount are set)
+    let actionType, destinationWallet, amount;
+    if (result === 'fail') {
+      if (!commitment.penalty_enabled) {
+        // No penalty configured for this commitment — skip wallet action
+        actionType        = null;
+        destinationWallet = null;
+        amount            = null;
+      } else {
+        actionType        = 'penalty';
+        destinationWallet = commitment.penalty_wallet;
+        amount            = commitment.penalty_amount_usdc;
+      }
+    } else {
+      actionType        = 'reward';
+      destinationWallet = commitment.reward_wallet;
+      amount            = commitment.reward_amount_usdc;
+    }
 
     // For reward actions, compute the unix timestamp after which the lock expires
     let metadata = null;
@@ -147,7 +161,7 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
       metadata = { unlock_timestamp: Math.floor(unlockDate.getTime() / 1000) };
     }
 
-    if (destinationWallet && amount != null) {
+    if (actionType && destinationWallet && amount != null) {
       const status = isDryRun ? 'dry_run_logged' : 'pending';
       await client.query(
         `INSERT INTO wallet_actions
