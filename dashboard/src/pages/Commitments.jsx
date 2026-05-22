@@ -100,10 +100,11 @@ function EditModal({ commitment, onClose, onSaved }) {
 export function Commitments() {
   const { data, loading, error } = useFetch('/commitments?limit=100');
   const evalsData = useFetch('/evaluations?limit=100');
-  const [evaluating, setEvaluating] = useState(null);
-  const [evalResult, setEvalResult] = useState({});
-  const [editing,    setEditing]    = useState(null);
-  const [localRows,  setLocalRows]  = useState(null);
+  const [evaluating,  setEvaluating]  = useState(null);
+  const [evalResult,  setEvalResult]  = useState({});
+  const [editing,     setEditing]     = useState(null);
+  const [localRows,   setLocalRows]   = useState(null);
+  const [confirming,  setConfirming]  = useState(null);
 
   const allRows = localRows ?? (data?.data || []);
 
@@ -127,12 +128,13 @@ export function Commitments() {
   }
 
   async function deleteCommitment(id) {
-    if (!confirm('Delete this commitment? This cannot be undone.')) return;
     try {
       await api.delete(`/commitments/${id}`);
       setLocalRows(allRows.filter(c => c.id !== id));
+      setConfirming(null);
     } catch (e) {
-      alert(e.message);
+      setConfirming(null);
+      console.error(e);
     }
   }
 
@@ -213,12 +215,29 @@ export function Commitments() {
               >
                 Edit
               </button>
-              <button
-                onClick={() => deleteCommitment(c.id)}
-                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#f87171] hover:text-[#f87171] transition-colors"
-              >
-                Delete
-              </button>
+              {confirming === c.id ? (
+                <>
+                  <button
+                    onClick={() => deleteCommitment(c.id)}
+                    className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#f87171] text-[#f87171] transition-colors"
+                  >
+                    Confirm
+                  </button>
+                  <button
+                    onClick={() => setConfirming(null)}
+                    className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-gray-500 transition-colors"
+                  >
+                    Cancel
+                  </button>
+                </>
+              ) : (
+                <button
+                  onClick={() => setConfirming(c.id)}
+                  className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#f87171] hover:text-[#f87171] transition-colors"
+                >
+                  Delete
+                </button>
+              )}
             </div>
 
             {triggered && (
