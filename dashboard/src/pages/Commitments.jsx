@@ -15,15 +15,98 @@ function rulesText(rules, logic) {
   return parts.join(logic === 'any' ? ' OR ' : ' AND ');
 }
 
+function EditModal({ commitment, onClose, onSaved }) {
+  const [title,  setTitle]  = useState(commitment.title);
+  const [amount, setAmount] = useState(commitment.penalty_amount_usdc ?? '');
+  const [wallet, setWallet] = useState(commitment.penalty_wallet ?? '');
+  const [saving, setSaving] = useState(false);
+  const [err,    setErr]    = useState(null);
+
+  async function save() {
+    setSaving(true);
+    setErr(null);
+    try {
+      const body = { title };
+      if (amount !== '') body.penalty_amount_usdc = parseFloat(amount);
+      if (wallet !== '') body.penalty_wallet = wallet;
+      const res = await api.patch(`/commitments/${commitment.id}`, body);
+      onSaved(res.data);
+    } catch (e) {
+      setErr(e.message);
+    } finally {
+      setSaving(false);
+    }
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70">
+      <div className="bg-[#111] border border-[#333] p-6 w-full max-w-md space-y-4">
+        <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Edit commitment</div>
+
+        <div className="space-y-3">
+          <div>
+            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Title</label>
+            <input
+              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-sm px-3 py-2 focus:outline-none focus:border-[#a3e635]"
+              value={title}
+              onChange={e => setTitle(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Penalty amount (USDC)</label>
+            <input
+              type="number"
+              min="0"
+              step="0.01"
+              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-sm px-3 py-2 focus:outline-none focus:border-[#a3e635]"
+              value={amount}
+              onChange={e => setAmount(e.target.value)}
+            />
+          </div>
+
+          <div>
+            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Penalty wallet</label>
+            <input
+              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-xs px-3 py-2 focus:outline-none focus:border-[#a3e635]"
+              value={wallet}
+              onChange={e => setWallet(e.target.value)}
+            />
+          </div>
+        </div>
+
+        {err && <div className="font-mono text-xs text-[#f87171]">{err}</div>}
+
+        <div className="flex gap-2 pt-1">
+          <button
+            onClick={save}
+            disabled={saving || !title.trim()}
+            className="flex-1 font-mono text-xs uppercase tracking-wider px-4 py-2 bg-[#a3e635] text-black hover:bg-[#bef264] disabled:opacity-40 transition-colors"
+          >
+            {saving ? 'Saving…' : 'Save'}
+          </button>
+          <button
+            onClick={onClose}
+            className="font-mono text-xs uppercase tracking-wider px-4 py-2 border border-[#333] text-gray-400 hover:border-gray-500 transition-colors"
+          >
+            Cancel
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export function Commitments() {
   const { data, loading, error } = useFetch('/commitments?limit=100');
   const evalsData = useFetch('/evaluations?limit=100');
   const [evaluating, setEvaluating] = useState(null);
   const [evalResult, setEvalResult] = useState({});
+  const [editing,    setEditing]    = useState(null);
+  const [localRows,  setLocalRows]  = useState(null);
 
-  const rows = data?.data || [];
+  const allRows = localRows ?? (data?.data || []);
 
-  // Build a per-commitment last-eval lookup
   const lastEvalByCommitment = {};
   for (const e of (evalsData.data?.data || [])) {
     if (!lastEvalByCommitment[e.commitment_id]) {
@@ -43,12 +126,28 @@ export function Commitments() {
     }
   }
 
-  const active   = rows.filter(c => c.status === 'active');
-  const inactive = rows.filter(c => c.status !== 'active');
+  async function deleteCommitment(id) {
+    if (!confirm('Delete this commitment? This cannot be undone.')) return;
+    try {
+      await api.delete(`/commitments/${id}`);
+      setLocalRows(allRows.filter(c => c.id !== id));
+    } catch (e) {
+      alert(e.message);
+    }
+  }
+
+  function handleSaved(updated) {
+    setLocalRows(allRows.map(c => c.id === updated.id ? updated : c));
+    setEditing(null);
+  }
+
+  const active   = allRows.filter(c => c.status === 'active');
+  const inactive = allRows.filter(c => c.status !== 'active');
 
   function CommitmentCard({ c }) {
-    const lastEval = lastEvalByCommitment[c.id];
+    const lastEval  = lastEvalByCommitment[c.id];
     const triggered = evalResult[c.id];
+
     return (
       <div className="bg-[#111] border border-[#222] p-4">
         <div className="flex items-start justify-between gap-4">
@@ -107,6 +206,21 @@ export function Commitments() {
               </button>
             )}
 
+            <div className="flex gap-2">
+              <button
+                onClick={() => setEditing(c)}
+                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#60a5fa] hover:text-[#60a5fa] transition-colors"
+              >
+                Edit
+              </button>
+              <button
+                onClick={() => deleteCommitment(c.id)}
+                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#f87171] hover:text-[#f87171] transition-colors"
+              >
+                Delete
+              </button>
+            </div>
+
             {triggered && (
               <span className={`font-mono text-[10px] ${
                 triggered.ok
@@ -151,8 +265,16 @@ export function Commitments() {
         </div>
       )}
 
-      {!loading && rows.length === 0 && (
+      {!loading && allRows.length === 0 && (
         <div className="font-mono text-xs text-gray-600">No commitments found.</div>
+      )}
+
+      {editing && (
+        <EditModal
+          commitment={editing}
+          onClose={() => setEditing(null)}
+          onSaved={handleSaved}
+        />
       )}
     </div>
   );

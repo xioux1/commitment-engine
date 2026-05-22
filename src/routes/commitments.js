@@ -133,6 +133,15 @@ router.patch('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
+// ── DELETE /commitments/:id ───────────────────────────────────────────────────
+router.delete('/:id', async (req, res, next) => {
+  try {
+    const { rows } = await pool.query('DELETE FROM commitments WHERE id = $1 RETURNING id', [req.params.id]);
+    if (!rows.length) return res.status(404).json({ error: 'Commitment not found' });
+    res.json({ data: { id: rows[0].id, deleted: true } });
+  } catch (err) { next(err); }
+});
+
 // ── POST /commitments/:id/evaluate  (manual trigger for testing) ──────────────
 router.post('/:id/evaluate', async (req, res, next) => {
   try {
