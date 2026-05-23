@@ -19,6 +19,7 @@ function EditModal({ commitment, onClose, onSaved }) {
   const [title,  setTitle]  = useState(commitment.title);
   const [amount, setAmount] = useState(commitment.penalty_amount_usdc ?? '');
   const [wallet, setWallet] = useState(commitment.penalty_wallet ?? '');
+  const [dryRun, setDryRun] = useState(commitment.dry_run ?? false);
   const [saving, setSaving] = useState(false);
   const [err,    setErr]    = useState(null);
 
@@ -26,7 +27,7 @@ function EditModal({ commitment, onClose, onSaved }) {
     setSaving(true);
     setErr(null);
     try {
-      const body = { title };
+      const body = { title, dry_run: dryRun };
       if (amount !== '') body.penalty_amount_usdc = parseFloat(amount);
       if (wallet !== '') body.penalty_wallet = wallet;
       const res = await api.patch(`/commitments/${commitment.id}`, body);
@@ -73,6 +74,11 @@ function EditModal({ commitment, onClose, onSaved }) {
               onChange={e => setWallet(e.target.value)}
             />
           </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" checked={dryRun} onChange={e => setDryRun(e.target.checked)} className="accent-[#a3e635]" />
+            <span className="font-mono text-xs text-gray-500">Dry run (log only, no on-chain actions)</span>
+          </label>
         </div>
 
         {err && <div className="font-mono text-xs text-[#f87171]">{err}</div>}
