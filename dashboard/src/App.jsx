@@ -5,6 +5,7 @@ import { Commitments }       from './pages/Commitments';
 import { CommitmentDetail }  from './pages/CommitmentDetail';
 import { Evaluations }       from './pages/Evaluations';
 import { Wallet }            from './pages/Wallet';
+import { VROralReview }      from './pages/VROralReview';
 
 export default function App() {
   return (
@@ -16,6 +17,7 @@ export default function App() {
           <Route path="/commitments/:id"    element={<CommitmentDetail />} />
           <Route path="/evaluations"        element={<Evaluations />} />
           <Route path="/wallet"             element={<Wallet />} />
+          <Route path="/oral-review"        element={<VROralReview />} />
         </Routes>
       </Layout>
     </BrowserRouter>

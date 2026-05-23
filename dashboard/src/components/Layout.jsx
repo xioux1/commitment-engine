@@ -1,10 +1,11 @@
 import { Link, useLocation } from 'react-router-dom';
 
 const NAV = [
-  { to: '/',            label: 'Overview'    },
-  { to: '/commitments', label: 'Commitments' },
-  { to: '/evaluations', label: 'Evaluations' },
-  { to: '/wallet',      label: 'Wallet'      },
+  { to: '/',             label: 'Overview'    },
+  { to: '/commitments',  label: 'Commitments' },
+  { to: '/evaluations',  label: 'Evaluations' },
+  { to: '/wallet',       label: 'Wallet'      },
+  { to: '/oral-review',  label: 'Oral VR'     },
 ];
 
 export function Layout({ children }) {

@@ -10,6 +10,7 @@ const evaluationsRouter   = require('./routes/evaluations');
 const walletActionsRouter = require('./routes/walletActions');
 const vaultRouter         = require('./routes/vault');
 const metricsRouter       = require('./routes/metrics');
+const oralReviewRouter    = require('./routes/oralReview');
 
 const app = express();
 
@@ -37,6 +38,7 @@ app.use('/api/evaluations',    evaluationsRouter);
 app.use('/api/wallet-actions', walletActionsRouter);
 app.use('/api/vault',          vaultRouter);
 app.use('/api/metrics',        metricsRouter);
+app.use('/api/oral-review',    oralReviewRouter);
 
 // ── SPA fallback ──────────────────────────────────────────────────────────────
 // All non-API GET requests fall through to index.html so React Router handles
