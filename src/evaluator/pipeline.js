@@ -5,7 +5,7 @@ const pool = require('../db');
 const { fetchMetrics } = require('../adapters/discriminador');
 const { evaluate } = require('./rules');
 
-const DRY_RUN = process.env.DRY_RUN !== 'false';
+const DRY_RUN = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 /**
  * Compute the [periodStart, periodEnd] for the most recently completed cycle

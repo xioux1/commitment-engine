@@ -5,7 +5,7 @@ const { runAllActiveCommitments } = require('../evaluator/pipeline');
 
 const SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * *'; // default: every day 08:00
 const TIMEZONE = process.env.CRON_TIMEZONE || 'UTC';
-const DRY_RUN  = process.env.DRY_RUN !== 'false';
+const DRY_RUN  = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 function start() {
   if (!cron.validate(SCHEDULE)) {
