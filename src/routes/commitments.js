@@ -4,6 +4,7 @@ const { Router } = require('express');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../db');
 const { runEvaluation } = require('../evaluator/pipeline');
+const DRY_RUN = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 const router = Router();
 
@@ -158,13 +159,19 @@ router.delete('/:id', async (req, res, next) => {
   }
 });
 
-// ── POST /commitments/:id/evaluate  (manual trigger for testing) ──────────────
+// ── POST /commitments/:id/evaluate ───────────────────────────────────────────
 router.post('/:id/evaluate', async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Commitment not found' });
 
     const result = await runEvaluation(rows[0]);
+
+    if (!DRY_RUN) {
+      const { processPending } = require('../executor/walletExecutor');
+      await processPending();
+    }
+
     res.json({ data: result });
   } catch (err) { next(err); }
 });
