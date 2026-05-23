@@ -18,6 +18,18 @@ router.get('/balance', async (req, res, next) => {
     const rpcUrl    = process.env.BASE_RPC_URL;
     const chainName = process.env.CHAIN_NAME || 'base';
 
+    // MOCK_VAULT_BALANCE=available,locked  — for local/staging simulation without a deployed contract
+    if (process.env.MOCK_VAULT_BALANCE) {
+      const [avail = '0', lock = '0'] = process.env.MOCK_VAULT_BALANCE.split(',');
+      return res.json({
+        available_balance: parseFloat(avail).toFixed(2),
+        locked_balance:    parseFloat(lock).toFixed(2),
+        chain_name:        chainName,
+        configured:        false,
+        mock:              true,
+      });
+    }
+
     if (!address || !rpcUrl) {
       return res.json({
         available_balance: '0.00',
