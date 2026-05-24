@@ -3,7 +3,7 @@
 const cron = require('node-cron');
 const { runAllActiveCommitments } = require('../evaluator/pipeline');
 
-const SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * 1'; // default: Mon 08:00
+const SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * *'; // default: daily 08:00
 const DRY_RUN  = process.env.DRY_RUN !== 'false';
 
 function start() {
