@@ -1,0 +1,23 @@
+name: Daily Evaluation
+
+on:
+  schedule:
+    - cron: '0 8 * * *'   # 08:00 UTC every day
+  workflow_dispatch:        # allows manual trigger from GitHub UI
+
+jobs:
+  run-evaluations:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Trigger evaluation pipeline
+        run: |
+          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+            -X POST "${{ secrets.RENDER_URL }}/api/run-evaluations" \
+            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -H "Content-Type: application/json")
+          echo "HTTP status: $HTTP_STATUS"
+          cat response.json
+          if [ "$HTTP_STATUS" != "200" ]; then
+            echo "Evaluation failed with status $HTTP_STATUS"
+            exit 1
+          fi
