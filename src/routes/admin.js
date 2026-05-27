@@ -11,7 +11,7 @@ function authMiddleware(req, res, next) {
     return res.status(503).json({ error: 'CRON_SECRET not configured' });
   }
   const auth = req.headers['authorization'] || '';
-  if (auth !== `Bearer ${secret}`) {
+  if (auth !== `Bearer ${secret.trim()}`) {
     return res.status(401).json({ error: 'Unauthorized' });
   }
   next();
