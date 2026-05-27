@@ -7,10 +7,10 @@ import { Spinner, InlineError } from '../components/Spinner';
 const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 const fmtTs   = (d) => new Date(d).toLocaleString();
 
-function studyMinutesTarget(rules) {
-  if (!Array.isArray(rules)) return null;
-  const r = rules.find(r => r.metric === 'study_minutes');
-  return r ? r.threshold : null;
+function primaryRuleInfo(rules) {
+  if (!Array.isArray(rules) || rules.length === 0) return { metric: null, target: null };
+  const r = rules[0];
+  return { metric: r.metric ?? null, target: r.threshold ?? null };
 }
 
 export function Evaluations() {
@@ -82,7 +82,7 @@ export function Evaluations() {
                   <th className="text-left px-4 py-2">Period</th>
                   <th className="text-left px-4 py-2 hidden md:table-cell">Commitment</th>
                   <th className="text-left px-4 py-2">Result</th>
-                  <th className="text-left px-4 py-2 hidden md:table-cell">Study min</th>
+                  <th className="text-left px-4 py-2 hidden md:table-cell">Min</th>
                   <th className="text-left px-4 py-2 hidden md:table-cell">Target</th>
                   <th className="text-left px-4 py-2 hidden lg:table-cell">Evaluated at</th>
                 </tr>
@@ -91,7 +91,8 @@ export function Evaluations() {
                 {rows.map(e => {
                   const isOpen  = expanded === e.id;
                   const metrics = e.metrics_data?.metrics || {};
-                  const target  = studyMinutesTarget(e.rules_snapshot);
+                  const { metric: primaryMetric, target } = primaryRuleInfo(e.rules_snapshot);
+                  const actualValue = primaryMetric != null ? (metrics[primaryMetric] ?? null) : null;
                   return (
                     <Fragment key={e.id}>
                       <tr
@@ -107,8 +108,8 @@ export function Evaluations() {
                         <td className="px-4 py-2.5">
                           <StatusBadge status={e.result} />
                         </td>
-                        <td className={`px-4 py-2.5 hidden md:table-cell ${metrics.study_minutes != null && target != null ? (metrics.study_minutes >= target ? 'text-[#a3e635]' : 'text-[#f87171]') : 'text-gray-300'}`}>
-                          {metrics.study_minutes ?? '—'}
+                        <td className={`px-4 py-2.5 hidden md:table-cell ${actualValue != null && target != null ? (actualValue >= target ? 'text-[#a3e635]' : 'text-[#f87171]') : 'text-gray-300'}`}>
+                          {actualValue ?? '—'}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell">
                           {target ?? '—'}

@@ -4,6 +4,7 @@ const { Router } = require('express');
 const { v4: uuidv4 } = require('uuid');
 const pool = require('../db');
 const { runEvaluation } = require('../evaluator/pipeline');
+const DRY_RUN = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 const router = Router();
 
@@ -57,7 +58,7 @@ router.post('/', async (req, res, next) => {
     const {
       user_id, title, description,
       rules, logic = 'all',
-      penalty_wallet, penalty_amount_usdc,
+      penalty_enabled = false, penalty_wallet, penalty_amount_usdc,
       reward_wallet, reward_amount_usdc, reward_lock_days = 30,
       period = 'weekly', evaluation_day_of_week, evaluation_time = '08:00:00',
       start_date, end_date,
@@ -77,15 +78,16 @@ router.post('/', async (req, res, next) => {
     const { rows } = await pool.query(
       `INSERT INTO commitments
          (id, user_id, title, description, rules, logic,
-          penalty_wallet, penalty_amount_usdc,
+          penalty_enabled, penalty_wallet, penalty_amount_usdc,
           reward_wallet, reward_amount_usdc, reward_lock_days,
           period, evaluation_day_of_week, evaluation_time,
           start_date, end_date, dry_run)
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
        RETURNING *`,
       [
         id, user_id, title, description || null,
         JSON.stringify(rules), logic,
+        penalty_enabled,
         penalty_wallet || null, penalty_amount_usdc || null,
         reward_wallet || null, reward_amount_usdc || null, reward_lock_days,
         period, evaluation_day_of_week ?? null, evaluation_time,
@@ -104,9 +106,9 @@ router.patch('/:id', async (req, res, next) => {
     const { rows: existing } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
     if (!existing.length) return res.status(404).json({ error: 'Commitment not found' });
 
-    const allowed = ['title', 'description', 'status', 'end_date', 'penalty_wallet',
-                     'penalty_amount_usdc', 'reward_wallet', 'reward_amount_usdc',
-                     'reward_lock_days', 'dry_run'];
+    const allowed = ['title', 'description', 'status', 'end_date',
+                     'penalty_enabled', 'penalty_wallet', 'penalty_amount_usdc',
+                     'reward_wallet', 'reward_amount_usdc', 'reward_lock_days', 'dry_run'];
     const updates = {};
     for (const key of allowed) {
       if (req.body[key] !== undefined) updates[key] = req.body[key];
@@ -132,13 +134,44 @@ router.patch('/:id', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── POST /commitments/:id/evaluate  (manual trigger for testing) ──────────────
+// ── DELETE /commitments/:id ───────────────────────────────────────────────────
+router.delete('/:id', async (req, res, next) => {
+  const client = await pool.connect();
+  try {
+    await client.query('BEGIN');
+    const { rows: existing } = await client.query('SELECT id FROM commitments WHERE id = $1', [req.params.id]);
+    if (!existing.length) {
+      await client.query('ROLLBACK');
+      return res.status(404).json({ error: 'Commitment not found' });
+    }
+    // Delete in FK dependency order
+    await client.query('DELETE FROM wallet_actions   WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM evaluations      WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM metric_snapshots WHERE commitment_id = $1', [req.params.id]);
+    await client.query('DELETE FROM commitments      WHERE id = $1',            [req.params.id]);
+    await client.query('COMMIT');
+    res.json({ data: { id: req.params.id, deleted: true } });
+  } catch (err) {
+    await client.query('ROLLBACK');
+    next(err);
+  } finally {
+    client.release();
+  }
+});
+
+// ── POST /commitments/:id/evaluate ───────────────────────────────────────────
 router.post('/:id/evaluate', async (req, res, next) => {
   try {
     const { rows } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
     if (!rows.length) return res.status(404).json({ error: 'Commitment not found' });
 
     const result = await runEvaluation(rows[0]);
+
+    if (!DRY_RUN) {
+      const { processPending } = require('../executor/walletExecutor');
+      await processPending();
+    }
+
     res.json({ data: result });
   } catch (err) { next(err); }
 });

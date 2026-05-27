@@ -5,7 +5,7 @@ const pool = require('../db');
 const { fetchMetrics } = require('../adapters/discriminador');
 const { evaluate } = require('./rules');
 
-const DRY_RUN = process.env.DRY_RUN !== 'false';
+const DRY_RUN = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 /**
  * Compute the [periodStart, periodEnd] for the most recently completed cycle
@@ -130,13 +130,27 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
     const isDryRun = DRY_RUN || commitment.dry_run;
     let walletAction = null;
 
-    const actionType        = result === 'fail' ? 'penalty' : 'reward';
-    const destinationWallet = result === 'fail'
-      ? commitment.penalty_wallet
-      : commitment.reward_wallet;
-    const amount = result === 'fail'
-      ? commitment.penalty_amount_usdc
-      : commitment.reward_amount_usdc;
+    // Determine which wallet_action to create (if any).
+    // - fail + penalty_enabled → penalty action
+    // - fail + !penalty_enabled → no action (commitment has no penalty configured)
+    // - pass → reward action (if reward wallet/amount are set)
+    let actionType, destinationWallet, amount;
+    if (result === 'fail') {
+      if (!commitment.penalty_enabled) {
+        // No penalty configured for this commitment — skip wallet action
+        actionType        = null;
+        destinationWallet = null;
+        amount            = null;
+      } else {
+        actionType        = 'penalty';
+        destinationWallet = commitment.penalty_wallet;
+        amount            = commitment.penalty_amount_usdc;
+      }
+    } else {
+      actionType        = 'reward';
+      destinationWallet = commitment.reward_wallet;
+      amount            = commitment.reward_amount_usdc;
+    }
 
     // For reward actions, compute the unix timestamp after which the lock expires
     let metadata = null;
@@ -147,7 +161,7 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
       metadata = { unlock_timestamp: Math.floor(unlockDate.getTime() / 1000) };
     }
 
-    if (destinationWallet && amount != null) {
+    if (actionType && destinationWallet && amount != null) {
       const status = isDryRun ? 'dry_run_logged' : 'pending';
       await client.query(
         `INSERT INTO wallet_actions
@@ -188,15 +202,32 @@ async function runEvaluation(commitment, referenceDate = new Date()) {
  * @param {Date} [referenceDate]
  * @returns {Promise<Array>}
  */
+/**
+ * Returns true if a commitment with the given period should be evaluated
+ * on referenceDate based on its schedule.
+ *   daily   → every day
+ *   weekly  → on evaluation_day_of_week (default 1 = Monday)
+ *   monthly → on the 1st of the month
+ */
+function shouldEvaluateToday(commitment, referenceDate) {
+  const day = referenceDate.getUTCDay(); // 0=Sun … 6=Sat
+  const date = referenceDate.getUTCDate();
+  if (commitment.period === 'daily')   return true;
+  if (commitment.period === 'weekly')  return day === (commitment.evaluation_day_of_week ?? 1);
+  if (commitment.period === 'monthly') return date === 1;
+  return false;
+}
+
 async function runAllActiveCommitments(referenceDate = new Date()) {
-  const { rows: commitments } = await pool.query(
+  const { rows: all } = await pool.query(
     `SELECT * FROM commitments
      WHERE status = 'active'
        AND start_date <= CURRENT_DATE
        AND (end_date IS NULL OR end_date >= CURRENT_DATE)`
   );
 
-  console.log(`[cron] found ${commitments.length} active commitment(s)`);
+  const commitments = all.filter(c => shouldEvaluateToday(c, referenceDate));
+  console.log(`[cron] ${all.length} active, ${commitments.length} due for evaluation today`);
 
   const results = [];
   for (const commitment of commitments) {

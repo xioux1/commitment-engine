@@ -117,7 +117,8 @@ The build command runs `cd dashboard && npm install && npm run build` which outp
 | `DISCRIMINADOR_BASE_URL` | Base URL of the Discriminador API |
 | `DISCRIMINADOR_API_KEY` | API key for Discriminador (if required) |
 | `DRY_RUN` | `true` to log actions without executing. **Keep `true` for first 2 weeks.** |
-| `CRON_SCHEDULE` | node-cron expression, default `0 8 * * 1` (Mon 08:00 UTC) |
+| `CRON_SCHEDULE` | node-cron expression, default `0 8 * * *` (every day 08:00) |
+| `CRON_TIMEZONE` | IANA timezone for the cron, default `UTC` (e.g. `America/Sao_Paulo`, `Europe/Madrid`) |
 | `NODE_ENV` | `production` |
 | `PORT` | Set by Render automatically |
 

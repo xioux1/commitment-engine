@@ -27,7 +27,7 @@ app.use(express.json());
 app.get('/health', (_req, res) => {
   res.json({
     status:    'ok',
-    dry_run:   process.env.DRY_RUN !== 'false',
+    dry_run:   process.env.DRY_RUN?.toLowerCase() !== 'false',
     timestamp: new Date().toISOString(),
   });
 });

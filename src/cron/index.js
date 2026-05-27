@@ -3,15 +3,16 @@
 const cron = require('node-cron');
 const { runAllActiveCommitments } = require('../evaluator/pipeline');
 
-const SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * *'; // default: daily 08:00
-const DRY_RUN  = process.env.DRY_RUN !== 'false';
+const SCHEDULE = process.env.CRON_SCHEDULE || '0 8 * * *'; // default: every day 08:00
+const TIMEZONE = process.env.CRON_TIMEZONE || 'UTC';
+const DRY_RUN  = process.env.DRY_RUN?.toLowerCase() !== 'false';
 
 function start() {
   if (!cron.validate(SCHEDULE)) {
     throw new Error(`Invalid CRON_SCHEDULE: "${SCHEDULE}"`);
   }
 
-  console.log(`[cron] scheduled "${SCHEDULE}" (DRY_RUN=${DRY_RUN})`);
+  console.log(`[cron] scheduled "${SCHEDULE}" timezone=${TIMEZONE} (DRY_RUN=${DRY_RUN})`);
 
   cron.schedule(SCHEDULE, async () => {
     console.log('[cron] evaluation run started', new Date().toISOString());
@@ -34,7 +35,7 @@ function start() {
     } catch (err) {
       console.error('[cron] unhandled error:', err.message);
     }
-  });
+  }, { timezone: TIMEZONE });
 }
 
 module.exports = { start };
