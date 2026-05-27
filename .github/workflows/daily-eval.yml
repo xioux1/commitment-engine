@@ -10,10 +10,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Trigger evaluation pipeline
+        env:
+          RENDER_URL: ${{ secrets.RENDER_URL }}
+          CRON_SECRET: ${{ secrets.CRON_SECRET }}
         run: |
           HTTP_STATUS=$(curl -s -L -o response.json -w "%{http_code}" \
-            -X POST "${{ secrets.RENDER_URL }}/api/run-evaluations" \
-            -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
+            -X POST "$RENDER_URL/api/run-evaluations" \
+            -H "Authorization: Bearer $CRON_SECRET" \
             -H "Content-Type: application/json")
           echo "HTTP status: $HTTP_STATUS"
           cat response.json
