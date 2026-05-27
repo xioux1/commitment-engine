@@ -232,6 +232,24 @@ async function runAllActiveCommitments(referenceDate = new Date()) {
   const results = [];
   for (const commitment of commitments) {
     try {
+      const { periodStart, periodEnd } = computePeriod(commitment.period, referenceDate);
+
+      // Skip if already evaluated for this exact period (prevents double-runs for weekly/monthly)
+      const { rows: existing } = await pool.query(
+        `SELECT id FROM evaluations
+         WHERE commitment_id = $1
+           AND period_start = $2
+           AND period_end   = $3
+         LIMIT 1`,
+        [commitment.id, periodStart, periodEnd]
+      );
+
+      if (existing.length > 0) {
+        console.log(`[cron] skipping commitment=${commitment.id} — already evaluated for period ${periodStart.toISOString().split('T')[0]}→${periodEnd.toISOString().split('T')[0]}`);
+        results.push({ commitment_id: commitment.id, ok: true, skipped: true });
+        continue;
+      }
+
       const result = await runEvaluation(commitment, referenceDate);
       results.push({ commitment_id: commitment.id, ok: true, ...result });
     } catch (err) {

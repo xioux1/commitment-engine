@@ -9,6 +9,7 @@ import { api } from '../api/client';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+
 function rulesText(rules, logic) {
   if (!Array.isArray(rules)) return '—';
   const parts = rules.map(r => `${r.metric} ${r.operator} ${r.threshold}`);
@@ -102,9 +103,6 @@ function EditModal({ commitment, onClose, onSaved }) {
     </div>
   );
 }
-
-const OPERATORS = ['>=', '<=', '>', '<', '=='];
-const METRICS   = ['study_minutes', 'study_sessions', 'cards_reviewed', 'oral_evaluations', 'physical_activity_minutes', 'physical_activity_sessions'];
 
 function NewModal({ onClose, onCreated }) {
   const today = new Date().toISOString().split('T')[0];
@@ -232,7 +230,7 @@ function NewModal({ onClose, onCreated }) {
 }
 
 export function Commitments() {
-  const { data, loading, error } = useFetch('/commitments?limit=100');
+  const { data, loading, error, refetch } = useFetch('/commitments?limit=100');
   const evalsData = useFetch('/evaluations?limit=100');
   const [evaluating,  setEvaluating]  = useState(null);
   const [evalResult,  setEvalResult]  = useState({});
