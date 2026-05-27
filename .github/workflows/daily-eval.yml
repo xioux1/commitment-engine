@@ -11,7 +11,7 @@ jobs:
     steps:
       - name: Trigger evaluation pipeline
         run: |
-          HTTP_STATUS=$(curl -s -o response.json -w "%{http_code}" \
+          HTTP_STATUS=$(curl -s -L -o response.json -w "%{http_code}" \
             -X POST "${{ secrets.RENDER_URL }}/api/run-evaluations" \
             -H "Authorization: Bearer ${{ secrets.CRON_SECRET }}" \
             -H "Content-Type: application/json")
