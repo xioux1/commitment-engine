@@ -7,7 +7,7 @@ import { StatusBadge }    from '../components/StatusBadge';
 import { SectionHeader }  from '../components/SectionHeader';
 import { Spinner, InlineError } from '../components/Spinner';
 
-const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const fmtTs   = (d) => new Date(d).toLocaleString();
 
 function computeStreak(rows) {

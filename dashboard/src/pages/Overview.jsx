@@ -19,7 +19,7 @@ function StatCard({ label, value, sub, accent }) {
   );
 }
 
-const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
+const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric', timeZone: 'UTC' });
 const fmtTs   = (d) => new Date(d).toLocaleString();
 
 function computeStreak(rows) {
