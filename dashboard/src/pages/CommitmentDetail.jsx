@@ -192,7 +192,7 @@ export function CommitmentDetail() {
                   return (
                     <tr key={e.id} className="border-b border-[#1a1a1a] last:border-0">
                       <td className="px-4 py-2.5 text-gray-300">
-                        {fmtDate(e.period_start)} – {fmtDate(e.period_end)}
+                        {fmtDate(e.period_start)}
                       </td>
                       <td className="px-4 py-2.5"><StatusBadge status={e.result} /></td>
                       <td className={`px-4 py-2.5 hidden md:table-cell ${

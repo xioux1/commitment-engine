@@ -195,7 +195,7 @@ export function Overview() {
               <div key={e.id} className="flex items-center justify-between px-4 py-2.5 border-b border-[#1a1a1a] last:border-0">
                 <div>
                   <div className="font-mono text-xs text-gray-300">
-                    {fmtDate(e.period_start)} – {fmtDate(e.period_end)}
+                    {fmtDate(e.period_start)}
                   </div>
                   {commitmentMap[e.commitment_id] && (
                     <div className="font-mono text-[10px] text-gray-600 mt-0.5">

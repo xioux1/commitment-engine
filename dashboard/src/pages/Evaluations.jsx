@@ -100,7 +100,7 @@ export function Evaluations() {
                         onClick={() => setExpanded(isOpen ? null : e.id)}
                       >
                         <td className="px-4 py-2.5 text-gray-300">
-                          {fmtDate(e.period_start)} – {fmtDate(e.period_end)}
+                          {fmtDate(e.period_start)}
                         </td>
                         <td className="px-4 py-2.5 text-gray-500 hidden md:table-cell max-w-[160px] truncate">
                           {commitmentMap[e.commitment_id] || '—'}
