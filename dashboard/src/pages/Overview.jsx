@@ -197,6 +197,9 @@ export function Overview() {
                   <div className="font-mono text-xs text-gray-300">
                     {fmtDate(e.period_start)}
                   </div>
+                  <div className="font-mono text-[10px] text-gray-500 mt-0.5">
+                    {fmtTs(e.evaluated_at)}
+                  </div>
                   {commitmentMap[e.commitment_id] && (
                     <div className="font-mono text-[10px] text-gray-600 mt-0.5">
                       {commitmentMap[e.commitment_id]}
