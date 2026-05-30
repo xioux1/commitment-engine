@@ -9,6 +9,19 @@ import { api } from '../api/client';
 
 const fmtDate = (d) => new Date(d).toLocaleDateString(undefined, { month: 'short', day: 'numeric' });
 
+const METRICS = [
+  'study_minutes',
+  'workout_minutes',
+  'pages_read',
+  'commits',
+  'steps',
+  'calories_burned',
+  'sleep_hours',
+  'meditation_minutes',
+];
+
+const OPERATORS = ['>=', '<=', '>', '<', '=='];
+
 
 function rulesText(rules, logic) {
   if (!Array.isArray(rules)) return '—';
