@@ -80,6 +80,74 @@ describe('evaluate — logic: any', () => {
   });
 });
 
+// ── shouldEvaluateToday ───────────────────────────────────────────────────────
+
+const { shouldEvaluateToday } = require('../src/evaluator/pipeline');
+
+describe('shouldEvaluateToday', () => {
+  const monday    = new Date('2024-03-18T10:00:00Z'); // getUTCDay() === 1
+  const tuesday   = new Date('2024-03-19T10:00:00Z'); // getUTCDay() === 2
+  const friday    = new Date('2024-03-22T10:00:00Z'); // getUTCDay() === 5
+  const firstOfMonth = new Date('2024-03-01T10:00:00Z');
+  const midMonth  = new Date('2024-03-15T10:00:00Z');
+
+  describe('daily period', () => {
+    test('always true regardless of day', () => {
+      const c = { period: 'daily' };
+      expect(shouldEvaluateToday(c, monday)).toBe(true);
+      expect(shouldEvaluateToday(c, tuesday)).toBe(true);
+      expect(shouldEvaluateToday(c, friday)).toBe(true);
+    });
+  });
+
+  describe('weekly period — default evaluation day (Monday)', () => {
+    const c = { period: 'weekly', evaluation_day_of_week: null };
+
+    test('true on Monday (default day)', () => {
+      expect(shouldEvaluateToday(c, monday)).toBe(true);
+    });
+
+    test('false on Tuesday', () => {
+      expect(shouldEvaluateToday(c, tuesday)).toBe(false);
+    });
+
+    test('false on Friday', () => {
+      expect(shouldEvaluateToday(c, friday)).toBe(false);
+    });
+  });
+
+  describe('weekly period — custom evaluation_day_of_week', () => {
+    test('true on configured day (Friday = 5)', () => {
+      const c = { period: 'weekly', evaluation_day_of_week: 5 };
+      expect(shouldEvaluateToday(c, friday)).toBe(true);
+    });
+
+    test('false on non-configured day', () => {
+      const c = { period: 'weekly', evaluation_day_of_week: 5 };
+      expect(shouldEvaluateToday(c, monday)).toBe(false);
+    });
+
+    test('explicit Monday (1) works same as default', () => {
+      const c = { period: 'weekly', evaluation_day_of_week: 1 };
+      expect(shouldEvaluateToday(c, monday)).toBe(true);
+      expect(shouldEvaluateToday(c, tuesday)).toBe(false);
+    });
+  });
+
+  describe('monthly period', () => {
+    const c = { period: 'monthly' };
+
+    test('true on 1st of month', () => {
+      expect(shouldEvaluateToday(c, firstOfMonth)).toBe(true);
+    });
+
+    test('false on any other date', () => {
+      expect(shouldEvaluateToday(c, midMonth)).toBe(false);
+      expect(shouldEvaluateToday(c, monday)).toBe(false); // March 18
+    });
+  });
+});
+
 // ── computePeriod ─────────────────────────────────────────────────────────────
 
 describe('computePeriod', () => {
@@ -108,6 +176,26 @@ describe('computePeriod', () => {
     const { periodStart, periodEnd } = computePeriod('monthly', ref);
     expect(periodStart.getUTCMonth()).toBe(1); // February
     expect(periodEnd.getUTCMonth()).toBe(1);
+  });
+
+  test('weekly — reference IS Monday (actual evaluation day)', () => {
+    // On Monday 2024-03-18, the last completed week is Mon 2024-03-11 → Sun 2024-03-17
+    const ref = new Date('2024-03-18T10:00:00Z');
+    const { periodStart, periodEnd } = computePeriod('weekly', ref);
+    expect(periodStart.toISOString().startsWith('2024-03-11')).toBe(true);
+    expect(periodEnd.toISOString().startsWith('2024-03-17')).toBe(true);
+    expect(periodStart.getUTCDay()).toBe(1); // Monday
+    expect(periodEnd.getUTCDay()).toBe(0);   // Sunday
+  });
+
+  test('weekly — reference is Sunday (edge: goes back 7 days to previous Sunday)', () => {
+    // On Sunday 2024-03-17, daysToLastSunday = 7, so end = 2024-03-10 (prev Sun)
+    const ref = new Date('2024-03-17T10:00:00Z');
+    const { periodStart, periodEnd } = computePeriod('weekly', ref);
+    expect(periodEnd.toISOString().startsWith('2024-03-10')).toBe(true);
+    expect(periodStart.toISOString().startsWith('2024-03-04')).toBe(true);
+    expect(periodStart.getUTCDay()).toBe(1); // Monday
+    expect(periodEnd.getUTCDay()).toBe(0);   // Sunday
   });
 
   test('throws on unknown period', () => {
