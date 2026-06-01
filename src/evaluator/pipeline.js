@@ -261,4 +261,4 @@ async function runAllActiveCommitments(referenceDate = new Date()) {
   return results;
 }
 
-module.exports = { runEvaluation, runAllActiveCommitments, computePeriod };
+module.exports = { runEvaluation, runAllActiveCommitments, computePeriod, shouldEvaluateToday };
