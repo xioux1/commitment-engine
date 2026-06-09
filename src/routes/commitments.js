@@ -106,19 +106,10 @@ router.patch('/:id', async (req, res, next) => {
     const { rows: existing } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
     if (!existing.length) return res.status(404).json({ error: 'Commitment not found' });
 
-    const allowed = ['status', 'end_date'];
-    const updates = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
+    if (req.body.end_date === undefined) {
+      return res.status(400).json({ error: 'Only end_date can be modified' });
     }
-
-    if (updates.status && !VALID_STATUSES.includes(updates.status)) {
-      return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
-    }
-
-    if (!Object.keys(updates).length) {
-      return res.status(400).json({ error: 'Only status and end_date can be modified' });
-    }
+    const updates = { end_date: req.body.end_date };
 
     const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`);
     setClauses.push(`updated_at = NOW()`);
