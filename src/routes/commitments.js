@@ -99,29 +99,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── PATCH /commitments/:id ────────────────────────────────────────────────────
-// Only end_date and status can be changed after creation.
-router.patch('/:id', async (req, res, next) => {
-  try {
-    const { rows: existing } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
-    if (!existing.length) return res.status(404).json({ error: 'Commitment not found' });
-
-    if (req.body.end_date === undefined) {
-      return res.status(400).json({ error: 'Only end_date can be modified' });
-    }
-    const updates = { end_date: req.body.end_date };
-
-    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`);
-    setClauses.push(`updated_at = NOW()`);
-    const values = [req.params.id, ...Object.values(updates)];
-
-    const { rows } = await pool.query(
-      `UPDATE commitments SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
-      values
-    );
-    res.json({ data: rows[0] });
-  } catch (err) { next(err); }
-});
 
 // ── POST /commitments/:id/evaluate ───────────────────────────────────────────
 router.post('/:id/evaluate', async (req, res, next) => {
