@@ -99,65 +99,6 @@ router.post('/', async (req, res, next) => {
   } catch (err) { next(err); }
 });
 
-// ── PATCH /commitments/:id ────────────────────────────────────────────────────
-// Only allows safe mutations (no retroactive rule changes if already evaluated).
-router.patch('/:id', async (req, res, next) => {
-  try {
-    const { rows: existing } = await pool.query('SELECT * FROM commitments WHERE id = $1', [req.params.id]);
-    if (!existing.length) return res.status(404).json({ error: 'Commitment not found' });
-
-    const allowed = ['title', 'description', 'status', 'end_date',
-                     'penalty_enabled', 'penalty_wallet', 'penalty_amount_usdc',
-                     'reward_wallet', 'reward_amount_usdc', 'reward_lock_days', 'dry_run'];
-    const updates = {};
-    for (const key of allowed) {
-      if (req.body[key] !== undefined) updates[key] = req.body[key];
-    }
-
-    if (updates.status && !VALID_STATUSES.includes(updates.status)) {
-      return res.status(400).json({ error: `status must be one of: ${VALID_STATUSES.join(', ')}` });
-    }
-
-    if (!Object.keys(updates).length) {
-      return res.status(400).json({ error: 'No updatable fields provided' });
-    }
-
-    const setClauses = Object.keys(updates).map((k, i) => `${k} = $${i + 2}`);
-    setClauses.push(`updated_at = NOW()`);
-    const values = [req.params.id, ...Object.values(updates)];
-
-    const { rows } = await pool.query(
-      `UPDATE commitments SET ${setClauses.join(', ')} WHERE id = $1 RETURNING *`,
-      values
-    );
-    res.json({ data: rows[0] });
-  } catch (err) { next(err); }
-});
-
-// ── DELETE /commitments/:id ───────────────────────────────────────────────────
-router.delete('/:id', async (req, res, next) => {
-  const client = await pool.connect();
-  try {
-    await client.query('BEGIN');
-    const { rows: existing } = await client.query('SELECT id FROM commitments WHERE id = $1', [req.params.id]);
-    if (!existing.length) {
-      await client.query('ROLLBACK');
-      return res.status(404).json({ error: 'Commitment not found' });
-    }
-    // Delete in FK dependency order
-    await client.query('DELETE FROM wallet_actions   WHERE commitment_id = $1', [req.params.id]);
-    await client.query('DELETE FROM evaluations      WHERE commitment_id = $1', [req.params.id]);
-    await client.query('DELETE FROM metric_snapshots WHERE commitment_id = $1', [req.params.id]);
-    await client.query('DELETE FROM commitments      WHERE id = $1',            [req.params.id]);
-    await client.query('COMMIT');
-    res.json({ data: { id: req.params.id, deleted: true } });
-  } catch (err) {
-    await client.query('ROLLBACK');
-    next(err);
-  } finally {
-    client.release();
-  }
-});
 
 // ── POST /commitments/:id/evaluate ───────────────────────────────────────────
 router.post('/:id/evaluate', async (req, res, next) => {
