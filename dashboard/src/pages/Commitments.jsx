@@ -47,6 +47,7 @@ function NewModal({ onClose, onCreated }) {
   const [amount,     setAmount]     = useState('');
   const [wallet,     setWallet]     = useState('0x000000000000000000000000000000000000dEaD');
   const [startDate,  setStartDate]  = useState(today);
+  const [endDate,    setEndDate]    = useState('');
   const [dryRun,     setDryRun]     = useState(false);
   const [saving,     setSaving]     = useState(false);
   const [err,        setErr]        = useState(null);
@@ -62,6 +63,7 @@ function NewModal({ onClose, onCreated }) {
         logic: 'all',
         period,
         start_date: startDate,
+        end_date: endDate || null,
         penalty_enabled: !!(amount && wallet),
         penalty_wallet:  wallet || null,
         penalty_amount_usdc: amount ? parseFloat(amount) : null,
@@ -109,7 +111,7 @@ function NewModal({ onClose, onCreated }) {
             </div>
           </div>
 
-          <div className="grid grid-cols-2 gap-2">
+          <div className="grid grid-cols-3 gap-2">
             <div>
               <label className={labelCls}>Period</label>
               <select className={inputCls} value={period} onChange={e => setPeriod(e.target.value)}>
@@ -121,6 +123,10 @@ function NewModal({ onClose, onCreated }) {
             <div>
               <label className={labelCls}>Start date</label>
               <input type="date" className={inputCls} value={startDate} onChange={e => setStartDate(e.target.value)} />
+            </div>
+            <div>
+              <label className={labelCls}>End date</label>
+              <input type="date" className={inputCls} value={endDate} onChange={e => setEndDate(e.target.value)} />
             </div>
           </div>
 
