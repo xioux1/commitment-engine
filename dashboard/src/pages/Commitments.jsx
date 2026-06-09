@@ -29,99 +29,6 @@ function rulesText(rules, logic) {
   return parts.join(logic === 'any' ? ' OR ' : ' AND ');
 }
 
-function EditModal({ commitment, onClose, onSaved }) {
-  const [title,  setTitle]  = useState(commitment.title);
-  const [amount, setAmount] = useState(commitment.penalty_amount_usdc ?? '');
-  const [wallet, setWallet] = useState(commitment.penalty_wallet ?? '');
-  const [dryRun, setDryRun] = useState(commitment.dry_run ?? false);
-  const [saving, setSaving] = useState(false);
-  const [err,    setErr]    = useState(null);
-
-  useEffect(() => {
-    const onKey = (e) => { if (e.key === 'Escape') onClose(); };
-    document.addEventListener('keydown', onKey);
-    return () => document.removeEventListener('keydown', onKey);
-  }, [onClose]);
-
-  async function save() {
-    setSaving(true);
-    setErr(null);
-    try {
-      const body = { title, dry_run: dryRun };
-      if (amount !== '') body.penalty_amount_usdc = parseFloat(amount);
-      if (wallet !== '') body.penalty_wallet = wallet;
-      const res = await api.patch(`/commitments/${commitment.id}`, body);
-      onSaved(res.data);
-    } catch (e) {
-      setErr(e.message);
-    } finally {
-      setSaving(false);
-    }
-  }
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/70" onClick={onClose}>
-      <div className="bg-[#111] border border-[#333] p-6 w-full max-w-md space-y-4" onClick={e => e.stopPropagation()}>
-        <div className="font-mono text-xs text-gray-400 uppercase tracking-widest">Edit commitment</div>
-
-        <div className="space-y-3">
-          <div>
-            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Title</label>
-            <input
-              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-sm px-3 py-2 focus:outline-none focus:border-[#a3e635]"
-              value={title}
-              onChange={e => setTitle(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Penalty amount (USDC)</label>
-            <input
-              type="number"
-              min="0"
-              step="0.01"
-              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-sm px-3 py-2 focus:outline-none focus:border-[#a3e635]"
-              value={amount}
-              onChange={e => setAmount(e.target.value)}
-            />
-          </div>
-
-          <div>
-            <label className="block font-mono text-[10px] text-gray-600 uppercase tracking-widest mb-1">Penalty wallet</label>
-            <input
-              className="w-full bg-[#1a1a1a] border border-[#333] text-gray-100 font-mono text-xs px-3 py-2 focus:outline-none focus:border-[#a3e635]"
-              value={wallet}
-              onChange={e => setWallet(e.target.value)}
-            />
-          </div>
-
-          <label className="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" checked={dryRun} onChange={e => setDryRun(e.target.checked)} className="accent-[#a3e635]" />
-            <span className="font-mono text-xs text-gray-500">Dry run (log only, no on-chain actions)</span>
-          </label>
-        </div>
-
-        {err && <div className="font-mono text-xs text-[#f87171]">{err}</div>}
-
-        <div className="flex gap-2 pt-1">
-          <button
-            onClick={save}
-            disabled={saving || !title.trim()}
-            className="flex-1 font-mono text-xs uppercase tracking-wider px-4 py-2 bg-[#a3e635] text-black hover:bg-[#bef264] disabled:opacity-40 transition-colors"
-          >
-            {saving ? 'Saving…' : 'Save'}
-          </button>
-          <button
-            onClick={onClose}
-            className="font-mono text-xs uppercase tracking-wider px-4 py-2 border border-[#333] text-gray-400 hover:border-gray-500 transition-colors"
-          >
-            Cancel
-          </button>
-        </div>
-      </div>
-    </div>
-  );
-}
 
 function NewModal({ onClose, onCreated }) {
   const today = new Date().toISOString().split('T')[0];
@@ -255,7 +162,7 @@ function NewModal({ onClose, onCreated }) {
   );
 }
 
-function CommitmentCard({ c, lastEval, triggered, evaluating, confirming, onEdit, onConfirm, onTriggerEval, onDelete }) {
+function CommitmentCard({ c, lastEval, triggered, evaluating, onTriggerEval }) {
   return (
     <div className="bg-[#111] border border-[#222] p-4">
       <div className="flex items-start justify-between gap-4">
@@ -314,39 +221,7 @@ function CommitmentCard({ c, lastEval, triggered, evaluating, confirming, onEdit
             </button>
           )}
 
-          <div className="flex gap-2">
-            <button
-              onClick={() => onEdit(c)}
-              className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#60a5fa] hover:text-[#60a5fa] transition-colors"
-            >
-              Edit
-            </button>
-            {confirming === c.id ? (
-              <>
-                <button
-                  onClick={() => onDelete(c.id)}
-                  className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#f87171] text-[#f87171] transition-colors"
-                >
-                  Confirm
-                </button>
-                <button
-                  onClick={() => onConfirm(null)}
-                  className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-gray-500 transition-colors"
-                >
-                  Cancel
-                </button>
-              </>
-            ) : (
-              <button
-                onClick={() => onConfirm(c.id)}
-                className="font-mono text-[10px] uppercase tracking-wider px-3 py-1.5 border border-[#333] text-gray-400 hover:border-[#f87171] hover:text-[#f87171] transition-colors"
-              >
-                Delete
-              </button>
-            )}
-          </div>
-
-          {triggered && (
+{triggered && (
             <span className={`font-mono text-[10px] ${
               triggered.ok
                 ? triggered.result === 'pass' ? 'text-[#a3e635]' : 'text-[#f87171]'
@@ -375,10 +250,8 @@ export function Commitments() {
   const evalsData = useFetch('/evaluations?limit=100');
   const [evaluating,  setEvaluating]  = useState(null);
   const [evalResult,  setEvalResult]  = useState({});
-  const [editing,     setEditing]     = useState(null);
   const [creating,    setCreating]    = useState(false);
   const [localRows,   setLocalRows]   = useState(null);
-  const [confirming,  setConfirming]  = useState(null);
 
   const allRows = localRows ?? (data?.data || []);
 
@@ -399,22 +272,6 @@ export function Commitments() {
     } finally {
       setEvaluating(null);
     }
-  }
-
-  async function deleteCommitment(id) {
-    try {
-      await api.delete(`/commitments/${id}`);
-      setLocalRows(allRows.filter(c => c.id !== id));
-      setConfirming(null);
-    } catch (e) {
-      setConfirming(null);
-      console.error(e);
-    }
-  }
-
-  function handleSaved(updated) {
-    setLocalRows(allRows.map(c => c.id === updated.id ? updated : c));
-    setEditing(null);
   }
 
   function handleCreated(created) {
@@ -449,11 +306,7 @@ export function Commitments() {
               lastEval={lastEvalByCommitment[c.id]}
               triggered={evalResult[c.id]}
               evaluating={evaluating}
-              confirming={confirming}
-              onEdit={setEditing}
-              onConfirm={setConfirming}
               onTriggerEval={triggerEval}
-              onDelete={deleteCommitment}
             />
           ))}
         </div>
@@ -469,11 +322,7 @@ export function Commitments() {
               lastEval={lastEvalByCommitment[c.id]}
               triggered={evalResult[c.id]}
               evaluating={evaluating}
-              confirming={confirming}
-              onEdit={setEditing}
-              onConfirm={setConfirming}
               onTriggerEval={triggerEval}
-              onDelete={deleteCommitment}
             />
           ))}
         </div>
@@ -490,13 +339,7 @@ export function Commitments() {
         />
       )}
 
-      {editing && (
-        <EditModal
-          commitment={editing}
-          onClose={() => setEditing(null)}
-          onSaved={handleSaved}
-        />
-      )}
+
     </div>
   );
 }
